@@ -32,8 +32,11 @@
                 <% } %>
             </tbody>
         </table>
+        <% if(page > 1){ %>
         <a href="/posts/<%= page - 1%>">이전 페이지</a><br>
+        <% } %>
+        <% if(page < max_page){ %>
         <a href="/posts/<%= page + 1%>">다음 페이지</a>
-
+        <% } %>
     </body>
 </html>

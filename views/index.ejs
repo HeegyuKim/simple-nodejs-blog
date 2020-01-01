@@ -5,6 +5,9 @@
     </head>
     <body>
         <h1>저의 블로그에 오신걸 환영합니다</h1>
+        <% if(locals.message) { %>
+            <p><%= message || "" %></p>
+        <% } %>
         <% if(user_id) { %>
             <%= user_id %>님 환영합니다.<br>
             <a href="/logout">로그아웃</a><br>

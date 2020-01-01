@@ -4,7 +4,7 @@ var api = require("./api.js");
 var sqlite3 = require("sqlite3").verbose()
 var db = new sqlite3.Database("./blog.db");
 var session = require('express-session');
-
+var url = require("url");
 var app = express();
 
 // 뷰 등록 + 템플릿 엔진 등록
@@ -17,7 +17,7 @@ app.use('/public', express.static(__dirname + '/public'));
 
 // 세션 설정
 app.use(session({
-    secret: '@#@$MYSIGN#@$#$',
+    secret: 'password123!@#',
     resave: false,
     saveUninitialized: true
    }));
@@ -29,7 +29,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //////// URL Routing ////////////
 app.get("/", function(req, res) {
     obj = {
-        user_id: req.session.user_id || null
+        user_id: req.session.user_id || null,
+        message: req.query.message
     }
     res.render("index.ejs", obj);
 });
@@ -43,82 +44,197 @@ app.get("/", function(req, res) {
 // 페이지 인덱스(1부터 시작)
 app.get("/posts/:page", function(req, res) {
     var page = req.params.page
-    obj = {
-        posts: [
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1}
-        ],
+    var query = {
         page: page,
-        max_page: 1
     }
-    res.render("posts.ejs", obj);
+    // Sample RESULT
+    // result = {
+    //     posts: [
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1}
+    //     ],
+    //     page: page,
+    //     max_page: 1
+    // }
+    api.post.get_list(db, query, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        }
+        else {
+            res.render("posts.ejs", result);
+        }
+    }) 
 });
 
 // id 게시물 가져오기
 app.get("/post/:id", function(req, res) {
-    obj = {
-        user_id: "root",
-
-        post: {
-            id: req.params.id,
-            title: "야호야호",
-            content: "asdsafjkefqofnqnw<br>"
-        },
-        comments: [
-            { id: 1, user_id: "root", content: "ㅋㅋㅋㅋㅋ "},
-            { id: 2, user_id: "test1", content: "ㅋㅋㅋㅋㅋ "},
-            { id: 3, user_id: "test2", content: "ㅋㅋㅋㅋㅋ "},
-            { id: 4, user_id: "test3", content: "ㅋㅋㅋㅋㅋ "}
-        ]
-    }
-    res.render("post.ejs", obj);
+    // SAMPLE RESULT
+    // obj = {
+    //     user_id: req.session.user_id || null,
+    //     post: {
+    //         id: req.params.id,
+    //         title: "야호야호",
+    //         content: "asdsafjkefqofnqnw<br>"
+    //     },
+    //     comments: [
+    //         { id: 1, user_id: "root", content: "ㅋㅋㅋㅋㅋ "},
+    //         { id: 2, user_id: "test1", content: "ㅋㅋㅋㅋㅋ "},
+    //         { id: 3, user_id: "test2", content: "ㅋㅋㅋㅋㅋ "},
+    //         { id: 4, user_id: "test3", content: "ㅋㅋㅋㅋㅋ "}
+    //     ]
+    // }
+    api.post.get(db, req.params.id, function(err, result) {
+        console.log(err, result);
+        if(err) {
+            res.sendStatus(500);
+        }
+        else if(result.post) {
+            result.user_id = req.session.user_id || null;
+            api.post.increase_view_count(db, req.params.id, function(err) {
+                res.render("post.ejs", result);
+            });
+        }
+        else {
+            res.sendStatus(404);
+        }
+    })
+    
 });
 
 // id 게시물에 댓글 추가
 // Body 값
 // - content: 댓글 내용
-app.post("/post/:id/comments", function(req, res) {
-
+app.post("/post/:post_id/comments", function(req, res) {
+    if(req.session.user_id) {
+        var post_id = req.params.post_id;
+        api.comment.create(db, req.session.user_id, post_id, req.body.content,
+            function(err) {
+                if(err) {
+                    res.sendStatus(500);
+                } else {
+                    res.redirect("/post/" + post_id);
+                }
+            });
+    }
+    else {
+        // 401 Unauthorized
+        res.sendStatus(401);
+    }
 })
 
 // id 댓글 삭제
-app.get("/comment/:id/delete", function(req, res) {
-    
+app.get("/comment/:comment_id/delete", function(req, res) {
+    var user_id = req.session.user_id || null;
+    if(user_id) {
+        var post_id = req.query.post_id;
+        var comment_id = req.params.comment_id;
+        api.comment.delete(db, user_id, comment_id, function(err, result) {
+            res.redirect("/post/" + post_id);    
+        })
+    }
+    else {
+        // 401 Unauthorized
+        res.sendStatus(401);
+    }
 })
 
 // 로그인 페이지 가져오기
 app.get("/login", function(req, res) {
-    res.render("login.ejs");
+    res.render("login.ejs", req.query);
 });
 
 // 회원가입 페이지 가져오기
 app.get("/signup", function(req, res) {
-    res.render("signup.ejs");
+    res.render("signup.ejs", req.query);
 });
 
 // 회원가입 요청
 app.post("/users", function(req, res) {
+    var body = req.body;
+    var id = body.id;
+    var pw1 = body.password;
+    var pw2 = body.password2;
 
+    // ID가 일치하는가?
+    if(pw1 === pw2) {
+        api.user.create(db, req.body, function(success) {
+            if(success) {
+                res.redirect(url.format({
+                    pathname: "/login",
+                    query: {
+                        message: "회원가입에 성공했습니다. 로그인해주세요."
+                    }
+                }));
+            }
+            else {
+                res.redirect(url.format({
+                    pathname: "/signup", 
+                    query: {
+                        message: "이미 존재하는 ID입니다."
+                    }
+                }));
+            }
+        });
+    }
+    else {
+        res.redirect(url.format({
+            pathname: "/signup", 
+            query: {
+                message: "비밀번호가 일치하지 않습니다."
+            }
+        }));
+    } 
 });
 
 // 로그인 요청
 app.post("/login", function(req, res) {
-
+    api.user.login(db, req.body.id, req.body.password, function(err, rows){
+        if(rows.length > 0) {
+            req.session.user_id = req.body.id;
+            res.redirect("/");
+        }
+        else {
+            res.redirect(url.format({
+                pathname: "/login",
+                query: {
+                    message: "잘못된 ID와 비밀번호입니다."
+                }
+            }));
+        }
+    });
 });
 
 // 로그아웃 요청
-app.post("/logout", function(req, res) {
-
+app.get("/logout", function(req, res) {
+    req.session.destroy(function(err){
+        res.redirect("/");
+    })
 });
 
 // 회원탈퇴 요청
-app.post("/user/:id/delete", function(req, res) {
-
+app.get("/leave", function(req, res) {
+    var id = req.session.user_id
+    api.user.delete(db, id, function(err){
+        if(err) {
+            res.sendStatus(500);
+        }
+        else {
+            // 세션 비우기
+            req.session.destroy(function(err){
+                res.redirect(url.format({
+                    pathname:  "/",
+                    query: {
+                        message: "회원탈퇴되었습니다."
+                    }
+                }));
+            })
+        }
+    });
 });
 
 
@@ -222,8 +338,15 @@ app.get("/admin/comments/:page", function(req, res) {
 });
 
 // 관리자가 특정 댓글 삭제
-app.post("admin/comment/:id/delete", function(req, res) {
-
+app.post("admin/comment/:comment_id/delete", function(req, res) {
+    api.comment.delete(db, req.params.comment_id, function(err) {
+        if(err) {
+            res.sendStatus(500)
+        }
+        else {
+            res.redirect("/admin/comments");
+        }
+    })
 });
 
 
