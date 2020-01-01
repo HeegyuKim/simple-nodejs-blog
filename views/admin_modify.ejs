@@ -7,7 +7,7 @@
         <h2>게시물 수정하기</h2>
         <a href="/admin/">돌아가기</a><br>
         <hr>
-        <form method="POST" action="/admin/posts/<%= id %>/modify">
+        <form method="POST" action="/admin/post/<%= id %>/modify">
             제목: <input type="text" name="title" value="<%= title %>"><br>
             내용<br>
             <textarea name="content"><%= content %></textarea><br>

@@ -196,6 +196,7 @@ app.post("/login", function(req, res) {
     api.user.login(db, req.body.id, req.body.password, function(err, rows){
         if(rows.length > 0) {
             req.session.user_id = req.body.id;
+            req.session.is_admin = false;
             res.redirect("/");
         }
         else {
@@ -244,60 +245,176 @@ app.get("/leave", function(req, res) {
 //
 //////// Admin /////////
 app.get("/admin", function(req, res) {
-    res.render("admin.ejs");
+    // 관리자 로그인이 안되어있으면 관리자 로그인으로 이동
+    if(req.session.is_admin) {
+        res.render("admin.ejs");
+    }
+    else {
+        res.redirect("/admin/login");
+    }
 });
 
 
 // 관리자 로그인 페이지를 가져옵니다.
 app.get("/admin/login", function(req, res) {
-    res.render("admin_login.ejs");
+    res.render("admin_login.ejs", {
+        message: req.query.message
+    });
 });
 
 // 관리자 로그인 페이지에서 로그인 시도를 할 경우.
 app.post("/admin/login", function(req, res) {
     var id = req.body.id;
     var pw = req.body.password;
+
+    api.admin.login(db, id, pw, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        }
+        else if(result) {
+            req.session.user_id = id;
+            req.session.is_admin = true;
+            res.redirect("/admin");
+        }
+        else {
+            res.redirect(url.format({
+                pathname: "/admin/login",
+                query: {
+                    message: "잘못된 ID 혹은 비밀번호입니다."
+                }
+            }));
+        }
+    })
+    
+});
+
+// 관리자 로그아웃
+app.get("/admin/logout", function(req, res) {
+    req.session.destroy(function(err){
+        res.redirect("/admin");
+    })
 });
 
 // 게시물 작성하기
 app.get("/admin/write", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
     res.render("admin_write.ejs");
+});
+
+// 게시물 작성 POST 요청
+// title: 제목
+// content: 내용
+app.post("/admin/write", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
+    api.post.create(db, req.body.title, req.body.content, function(err, post_id) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.redirect("/post/" + post_id);
+        }
+    })
 });
 
 // 게시물 목록 보기
 app.get("/admin/posts/:page", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
     var page = parseInt(req.params.page)
-    obj = {
-        posts: [
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
-            {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1}
-        ],
-        page: page,
-        max_page: 100
+    var query = {
+        page: page
     }
-    res.render("admin_posts.ejs", obj);
+    // SAMPLE 
+    // obj = {
+    //     posts: [
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1},
+    //         {id: 1, title: "HIHIHI", view_count: 1, recommend_count: 1}
+    //     ],
+    //     page: page,
+    //     max_page: 100
+    // }
+    api.post.get_list(db, query, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        }
+        else {
+            res.render("admin_posts.ejs", result);
+        }
+    }) 
 });
-// 게시물 수정하기
+
+// 게시물 수정하기 페이지
 app.get("/admin/post/:id/modify", function(req, res) {
-    obj = {
-        id: 1,
-        title: "제목입니다",
-        content: "내용입니다"
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
     }
-    res.render("admin_modify.ejs", obj);
+    api.post.get(db, req.params.id, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        }
+        else if(result) {
+            res.render("admin_modify.ejs", result.post);
+        }
+        else {
+            res.sendStatus(404);
+        }
+    });
 });
+
+// 게시물 수정 요청
+app.post("/admin/post/:id/modify", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
+    api.post.modify(db, req.params.id, req.body.title, req.body.content, function(err) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.redirect("/admin/posts/1");
+        }
+    });
+});
+
 // 게시물 삭제하기
 app.get("/admin/post/:id/delete", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
 
+    api.post.delete(db, req.params.id, function(err) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.redirect("/admin/posts/1");
+        }
+    });
 });
 
 // 유저 목록
 app.get("/admin/users/:page", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+    }
+
     var page = parseInt(req.params.page);
     obj = {
         page: page,

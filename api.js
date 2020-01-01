@@ -122,20 +122,20 @@ exports.post = {
 
 
     // body에 있는 내용으로 새로운 게시물 작성
-    create: function(db, body, next) {
+    create: function(db, title, content, next) {
         var query = "INSERT INTO post(title, content) VALUES (?, ?);";
         var stmt = db.prepare(query);
-        stmt.run(body.title, body.content, function(err) {
-            next(err);
+        stmt.run(title, content, function(err) {
+            next(err, this.lastID);
         });
         stmt.finalize();
     },
 
     // body에 있는 내용으로 id 게시물 변경
-    modify: function(db, id, body, next) {
+    modify: function(db, id, title, content, next) {
         var query = "UPDATE post SET title=?, content=? WHERE id=?;";
         var stmt = db.prepare(query);
-        stmt.run(body.title, body.content, id, function(err) {
+        stmt.run(title, content, id, function(err) {
             next(err);
         });
         stmt.finalize();
@@ -218,7 +218,7 @@ exports.admin = {
                     " AND is_admin = 1;"
         var stmt = db.prepare(query);
         stmt.all(id, password, function(err, rows) {
-            next(err, rows)
+            next(err, rows && rows.length > 0);
         });
         stmt.finalize();
     }

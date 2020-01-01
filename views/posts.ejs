@@ -32,8 +32,23 @@
                 <% } %>
             </tbody>
         </table>
+        <hr>
+        <% for(var i=-5; i<5; i++) { %>
+            <% 
+                var p = page + i;
+                if(p <= 0 || p > max_page)
+                    continue;
+            %>
+
+            <% if(i != 0) { %>
+                <a href="/admin/posts/<%= p %>"><%= p %></a>
+            <% } else { %>
+                <%= p %>
+            <% } %>
+            &nbsp;
+        <% } %><br>
         <% if(page > 1){ %>
-        <a href="/posts/<%= page - 1%>">이전 페이지</a><br>
+        <a href="/posts/<%= page - 1%>">이전 페이지</a>
         <% } %>
         <% if(page < max_page){ %>
         <a href="/posts/<%= page + 1%>">다음 페이지</a>
