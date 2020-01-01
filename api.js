@@ -14,6 +14,44 @@ exports.user = {
         stmt.finalize();
     },
 
+
+    get_list: function(db, query, next) {
+        var users = null;
+        var page = parseInt(query.page || "1") - 1;
+        var count_per_page = 5;
+        
+        // 사용자 목록을 가져옴.
+        var query = "SELECT * FROM user " +
+                " WHERE is_admin = 0 " +
+                "ORDER BY created_at DESC, id DESC " + 
+                "LIMIT ?, ?";
+        var stmt = db.prepare(query);
+        stmt.all(page * count_per_page, count_per_page, function(err, rows) {
+            users = rows;
+        });
+        stmt.finalize();
+
+        // 최대 페이지 개수를 가져옴.
+        var query = "SELECT COUNT(*) / ? + 1 AS max_page FROM user  WHERE is_admin = 0;";
+        stmt = db.prepare(query);
+        stmt.all(count_per_page, function(err, rows){
+
+            if(err) {
+                next(err, null);
+            }
+            else {
+                var result = {
+                    page: page + 1,
+                    max_page: rows[0].max_page,
+                    users: users
+                };
+    
+                next(null, result);
+            }
+        })
+        stmt.finalize();
+    },
+
     login: function(db, id, password, next) {
         var query = "SELECT id FROM user WHERE id=? AND password=? " +
                     " AND is_admin = 0;"
@@ -25,8 +63,15 @@ exports.user = {
     },
 
     delete: function(db, id, next) {
-        var query = "DELETE FROM user WHERE id=?;"
+        var query = "DELETE FROM user WHERE id=? AND is_admin=0;"
         var stmt = db.prepare(query);
+        stmt.run(id, function(err) {
+            next(err)
+        });
+        stmt.finalize();
+
+        query = "DELETE FROM comment WHERE user_id=?;"
+        stmt = db.prepare(query);
         stmt.run(id, function(err) {
             next(err)
         });
@@ -43,7 +88,7 @@ exports.post = {
         
         // 게시물 목록을 가져옴.
         var query = "SELECT * FROM post " +
-                "ORDER BY created_at DESC " + 
+                "ORDER BY created_at DESC, id DESC " + 
                 "LIMIT ?, ?";
         var stmt = db.prepare(query);
         stmt.all(page * count_per_page, count_per_page, function(err, rows) {
@@ -173,19 +218,28 @@ exports.comment = {
         stmt.finalize();
     },
 
+    delete_by_admin: function(db, comment_id, next) {
+        var query = "DELETE FROM comment WHERE id=?";
+        var stmt = db.prepare(query);
+        stmt.all(comment_id, function(err, result) {
+            console.log(err, result);
+            next(err, result);
+        });
+        stmt.finalize();
+    },
+
     get_list: function(db, query, next) {
-        var posts = null;
+        var comments = null;
         var page = parseInt(query.page || "1") - 1;
         var count_per_page = 5;
         
-        // 게시물 목록을 가져옴.
+        // 댓글 목록을 가져옴.
         var query = "SELECT * FROM comment " +
                 "ORDER BY created_at DESC " + 
                 "LIMIT ?, ?";
         var stmt = db.prepare(query);
         stmt.all(page * count_per_page, count_per_page, function(err, rows) {
-            console.log(err, rows);
-            posts = rows;
+            comments = rows;
         });
         stmt.finalize();
 
@@ -193,7 +247,6 @@ exports.comment = {
         var query = "SELECT COUNT(*) / ? + 1 AS max_page FROM comment";
         stmt = db.prepare(query);
         stmt.all(count_per_page, function(err, rows){
-
             if(err) {
                 next(err, null);
             }
@@ -201,7 +254,7 @@ exports.comment = {
                 var result = {
                     page: page + 1,
                     max_page: rows[0].max_page,
-                    posts: posts
+                    comments: comments
                 };
     
                 next(null, result);

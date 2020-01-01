@@ -1,7 +1,7 @@
 
 BEGIN;
 
-INSERT INTO user
+INSERT INTO user (id, password, is_admin)
 VALUES
 ("root", "password", 1),
 ("test1", "password", 0),

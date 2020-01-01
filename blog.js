@@ -127,6 +127,17 @@ app.post("/post/:post_id/comments", function(req, res) {
     }
 })
 
+// 추천!
+app.get("/post/:post_id/recommend", function(req, res) {
+    api.post.increase_recommend_count(db, req.params.post_id, function(err) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.redirect("/post/" + req.params.post_id);
+        }
+    })
+});
+
 // id 댓글 삭제
 app.get("/comment/:comment_id/delete", function(req, res) {
     var user_id = req.session.user_id || null;
@@ -413,55 +424,97 @@ app.get("/admin/post/:id/delete", function(req, res) {
 app.get("/admin/users/:page", function(req, res) {
     if(!req.session.is_admin) {
         res.sendStatus(403);
+        return;
     }
 
+    // SAMPLE
+    // result = {
+    //     page: page,
+    //     max_page: 100,
+    //     users: [
+    //         { id: "test1" },
+    //         { id: "test2" },
+    //         { id: "test22" },
+    //         { id: "test31" },
+    //         { id: "test4" },
+    //         { id: "test5" },
+    //     ]
+    // };
+
     var page = parseInt(req.params.page);
-    obj = {
-        page: page,
-        max_page: 100,
-        users: [
-            { id: "test1" },
-            { id: "test2" },
-            { id: "test22" },
-            { id: "test31" },
-            { id: "test4" },
-            { id: "test5" },
-        ]
+    var query = {
+        page: page
     };
-    res.render("admin_users.ejs", obj);
+    api.user.get_list(db, query, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.render("admin_users.ejs", result);
+        }
+    });
 });
 
 // id 유저 삭제
-app.post("/admin/user/:id/delete", function(req, res) {
+app.get("/admin/user/:id/delete", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
 
+    api.user.delete(db, req.params.id, function(err) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.redirect("/admin/users/1")
+        }
+    });
 });
 
 // 댓글목록 보기
 app.get("/admin/comments/:page", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
     var page = parseInt(req.params.page);
-    obj = {
-        page: page,
-        max_page: 100,
-        comments: [
-            { user_id: "test1", content: "ㅋㅋㅋㅋㅋ" },
-            { user_id: "test2", content: "ㅋㅋㅋㅋㅋ"  },
-            { user_id: "test22", content: "ㅋㅋㅋㅋㅋ"  },
-            { user_id: "test31", content: "ㅋㅋㅋㅋㅋ"  },
-            { user_id: "test4", content: "ㅋㅋㅋㅋㅋ"  },
-            { user_id: "test5", content: "ㅋㅋㅋㅋㅋ"  }
-        ]
+    var query = {
+        page: page
     };
-    res.render("admin_users.ejs", obj);
+    // obj = {
+    //     page: page,
+    //     max_page: 100,
+    //     comments: [
+    //         { user_id: "test1", content: "ㅋㅋㅋㅋㅋ" },
+    //         { user_id: "test2", content: "ㅋㅋㅋㅋㅋ"  },
+    //         { user_id: "test22", content: "ㅋㅋㅋㅋㅋ"  },
+    //         { user_id: "test31", content: "ㅋㅋㅋㅋㅋ"  },
+    //         { user_id: "test4", content: "ㅋㅋㅋㅋㅋ"  },
+    //         { user_id: "test5", content: "ㅋㅋㅋㅋㅋ"  }
+    //     ]
+    // };
+    api.comment.get_list(db, query, function(err, result) {
+        if(err) {
+            res.sendStatus(500);
+        } else {
+            res.render("admin_comments.ejs", result);
+        }
+    });
 });
 
 // 관리자가 특정 댓글 삭제
-app.post("admin/comment/:comment_id/delete", function(req, res) {
-    api.comment.delete(db, req.params.comment_id, function(err) {
+app.get("/admin/comment/:comment_id/delete", function(req, res) {
+    if(!req.session.is_admin) {
+        res.sendStatus(403);
+        return;
+    }
+
+    api.comment.delete_by_admin(db, req.params.comment_id, function(err) {
         if(err) {
             res.sendStatus(500)
         }
         else {
-            res.redirect("/admin/comments");
+            res.redirect("/admin/comments/1");
         }
     })
 });
