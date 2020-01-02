@@ -1,5 +1,9 @@
 
 node.js
+### 코드 받기
+```
+git clone https://github.com/HeegyuKim/simple-nodejs-blog.git
+```
 
 ### 1. 패키지 설치
 ```
