@@ -18,5 +18,6 @@ sqlite3 blog.db < sample_dumps.sql
 ```
 node blog.js
 ```
-접속 port: 3000
+구름 IDE가 아닌 자기 컴퓨터에서 하시는 분들은
+http://localhost:3000/ 으로 접속하면 됩니다.
 ### 
